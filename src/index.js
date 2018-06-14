@@ -7,67 +7,74 @@ import './index.css';
 
 
 export default class Monacode extends React.Component {
-    static propTypes = {
-        className: PropTypes.string,
-        autoFocus: PropTypes.bool,
-        language: PropTypes.string,
-        extension: PropTypes.string,
-        options: PropTypes.object,
-        value: PropTypes.string,
-    };
+  static propTypes = {
+    className: PropTypes.string,
+    autoFocus: PropTypes.bool,
+    language: PropTypes.string,
+    extension: PropTypes.string,
+    options: PropTypes.object,
+    value: PropTypes.string,
+    autoSize: PropTypes.bool,
+  };
 
-    static defaultProps = {
-        language: 'plaintext',
-        extension: 'txt',
-        options: {
-            minimap: {
-                enabled: false,
-            },
-            fontSize: 16,
-        },
-    };
+  static defaultProps = {
+    language: 'plaintext',
+    extension: 'txt',
+    options: {
+      minimap: {
+        enabled: false,
+      },
+      fontSize: 16,
+    },
+    autoSize: false,
+  };
 
-    constructor(props) {
-        super(props);
-        this.nodeRef = this.nodeRef.bind(this);
+  constructor(props) {
+    super(props);
+    this.nodeRef = this.nodeRef.bind(this);
+  }
+
+  nodeRef(node) {
+    this.node = node;
+  }
+
+  componentDidMount() {
+    if (!this.node) {
+      return;
     }
 
-    nodeRef(node) {
-        this.node = node;
+    const { language, extension, options, value } = this.props;
+    this.model = monaco.editor.createModel(value || '', language, `file:///file.${extension}`);
+    this.editor = monaco.editor.create(this.node, Object.assign({}, options, {
+      model: this.model,
+    }));
+
+    if (this.props.autoFocus) {
+      this.editor.focus();
     }
+  }
 
-    componentDidMount() {
-        if (!this.node) {
-            return;
-        }
-        
-        const { language, extension, options, value } = this.props;
-        this.model = monaco.editor.createModel(value || '', language, `file://file.${extension}`);
-        this.editor = monaco.editor.create(this.node, Object.assign({}, options, {
-            model: this.model,
-        }));
+  componentWillUnmount() {
+    this.model.dispose();
+    this.editor.dispose();
+  }
 
-        if (this.props.autoFocus) {
-            this.editor.focus();
-        }
+  componentDidUpdate(prevProps, prevState) {
+    const { options  } = this.props;
+    const { options: prevOptions } = prevProps;
+
+    if (prevOptions !== options) {
+      this.editor.updateOptions(options);
     }
+  }
 
-    componentDidUpdate(prevProps, prevState) {
-        const { options  } = this.props;
-        const { options: prevOptions } = prevProps;
+  shouldComponentUpdate() {
+    return false;
+  }
 
-        if (prevOptions !== options) {
-            this.editor.updateOptions(options);
-        }
-    }
-
-    shouldCompoentUpdate() {
-        return false;
-    }
-
-    render() {
-        return (
-            <div ref={this.nodeRef} className={this.props.className} />
-        );
-    }
+  render() {
+    return (
+      <div ref={this.nodeRef} className={this.props.className} />
+    );
+  }
 }
