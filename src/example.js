@@ -12,7 +12,7 @@ ReactDOM.render(
     language="python"
     extension="py"
     className="cm-editor"
-    value="Value"
+    value=""
     lspUrl="ws://localhost:2087"
     completionItemClassName="cm-completion-item"
   />,

@@ -1,4 +1,4 @@
-export function convertChanges(editor, changes) {
+export function convertCmChangestoLsp(editor, changes) {
   return changes.map(change => {
     const range = {};
 
@@ -39,16 +39,17 @@ export function convertChanges(editor, changes) {
   });
 }
 
+export function convertLspPositionToCm(pos) {
+  return {
+    line: pos.line,
+    ch: pos.character,
+  };
+}
+
 export function convertLspRangeToCm(range) {
   return {
-    from: {
-      line: range.start.line,
-      ch: range.start.character,
-    },
-    to: {
-      line: range.end.line,
-      ch: range.end.character,
-    },
+    from: convertLspPositionToCm(range.start),
+    to: convertLspPositionToCm(range.end),
   };
 }
 
@@ -70,11 +71,13 @@ export function severityToString(level) {
 export function convertLspDiagnosticsToCm(diagnostics) {
   return diagnostics.map(diagnostic => {
     return {
-      range: convertLspRangeToCm(diagnostic.range),
+      // range: convertLspRangeToCm(diagnostic.range),
       severity: severityToString(diagnostic.severity),
       code: diagnostic.code,
       source: diagnostic.source,
       message: diagnostic.message,
+      from: convertLspPositionToCm(diagnostic.range.start),
+      to: convertLspPositionToCm(diagnostic.range.end),
     };
   });
 }
@@ -102,7 +105,7 @@ export function createAdapter(editor, client, options = {}) {
           uri: 'file:///workspace/file.py',
           version: 1,
         },
-        contentChanges: convertChanges(editor, changes),
+        contentChanges: convertCmChangestoLsp(editor, changes),
       }, false);
     });
 
@@ -125,6 +128,23 @@ export function createAdapter(editor, client, options = {}) {
         }));
       });
     }
+  };
+
+  let lastAnnotations = [];
+  let lastPromise = null;
+  const di = function(params) {
+    if (lastPromise) {
+      lastPromise(convertLspDiagnosticsToCm(params.diagnostics));
+    }
+  }
+
+  const completionKeyMap = {
+    'Ctrl-N': function(_cm, handlers) {
+      handlers.moveFocus(1);
+    },
+    'Ctrl-P': function(_cm, handlers) {
+      handlers.moveFocus(-1);
+    },
   };
 
   const completion = function(editor, opt) {
@@ -188,6 +208,9 @@ export function createAdapter(editor, client, options = {}) {
       .then(() => {
         client.initialize()
         .then(() => {
+          editor.on('changes', onChange);
+          connectionResolved = true;
+
           client.send('textDocument/didOpen', {
             textDocument: {
               uri: 'file:///workspace/file.py',
@@ -198,10 +221,6 @@ export function createAdapter(editor, client, options = {}) {
           }, false);
           triggerChars = (client.serverCapabilities.completionProvider && client.serverCapabilities.completionProvider.triggerCharacters) ? client.serverCapabilities.completionProvider.triggerCharacters : null;
 
-          editor.on('changes', onChange);
-          client.addDiagnosticListener(getDiagnostics);
-          connectionResolved = true;
-
           if (client.serverCapabilities.completionProvider) {
             if (options.loadHintModule) {
               options.loadHintModule()
@@ -211,10 +230,21 @@ export function createAdapter(editor, client, options = {}) {
                   hint: completion,
                   container: editor.getWrapperElement().parentNode,
                   alignWithWord: false,
+                  extraKeys: completionKeyMap,
                 });
               });
             }
           }
+
+          editor.setOption('lintAsync', true);
+          editor.setOption('lint', {
+            getAnnotations(value, opts, cm) {
+              return new Promise((resolve) => {
+                lastPromise = resolve;
+              });
+            },
+          });
+          client.addDiagnosticListener(di);
         });
       });
     },

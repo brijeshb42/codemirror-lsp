@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import CodeMirror from 'codemirror';
 import PropTypes from 'prop-types';
+import 'codemirror/addon/lint/lint';
 
 import Client from './languageClient';
 import { createAdapter } from './cmadapter';
@@ -64,6 +65,7 @@ export default class CodeMirrorComponent extends Component {
       this.adapter = createAdapter(this.editor, this.client, {
         completionItemClassName,
         loadHintModule: this.loadHintModule,
+        loadLintModule: this.loadLintModule,
       });
       this.adapter.start();
     }
@@ -88,6 +90,11 @@ export default class CodeMirrorComponent extends Component {
     import('codemirror/addon/hint/show-hint.css');
     return import('codemirror/addon/hint/show-hint');
   }
+
+  // loadLintModule() {
+  //   import('codemirror/addon/lint/lint.css');
+  //   return import('codemirror/addon/lint/lint');
+  // }
 
   render() {
     const { className } = this.props;
