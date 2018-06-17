@@ -2,7 +2,7 @@ const path = require('path');
 const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-const MonacoEditorWebpackPlugin = require('monaco-editor-webpack-plugin');
+// const MonacoEditorWebpackPlugin = require('monaco-editor-webpack-plugin');
 const monacoFeatures = require('monaco-editor-webpack-plugin/features');
 
 const mode = process.env.NODE_ENV || 'development';
@@ -26,7 +26,7 @@ module.exports = {
       filename: '[name].style.css',
       chunkFilename: '[id].chunk.css',
     }),
-    new MonacoEditorWebpackPlugin(),
+    // new MonacoEditorWebpackPlugin(),
   ],
   module: {
     rules: [{

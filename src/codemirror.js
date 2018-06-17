@@ -1,10 +1,9 @@
 import React, { Component } from 'react';
 import CodeMirror from 'codemirror';
 import PropTypes from 'prop-types';
-import 'codemirror/mode/python/python';
 
 import Client from './languageClient';
-import { startListening } from './cmadapter';
+import { createAdapter } from './cmadapter';
 
 import 'codemirror/lib/codemirror.css';
 import 'codemirror/addon/lint/lint.css';
@@ -13,15 +12,19 @@ import './index.css';
 export default class CodeMirrorComponent extends Component {
   static propTypes = {
     className: PropTypes.string,
+    completionItemClassName: PropTypes.string,
     language: PropTypes.string.isRequired,
     autoFocus: PropTypes.bool,
     value: PropTypes.string,
+    lspUrl: PropTypes.string,
   };
 
   static defaultProps = {
     className: '',
+    completionItemClassName: '',
     autoFocus: false,
     value: '',
+    lspUrl: '',
   };
 
   constructor(props) {
@@ -34,11 +37,10 @@ export default class CodeMirrorComponent extends Component {
   }
 
   componentDidMount() {
-    const { language, autoFocus, value } = this.props;
+    const { language, autoFocus, value, lspUrl, completionItemClassName } = this.props;
 
     this.editor = CodeMirror(this.node, {
       value,
-      mode: language,
       lineNumbers: true,
       matchBrackets: true,
       smartIndent: true,
@@ -46,34 +48,52 @@ export default class CodeMirrorComponent extends Component {
       electricChars: true,
       styleActiveLine: true,
       lint: true,
+      extraKeys: {
+        'Ctrl-Space': 'autocomplete',
+      },
     });
+
+    this.loadMode(language).then(() => this.editor.setOption('mode', language));
 
     if (autoFocus) {
       this.editor.focus();
     }
 
-    this.client = new Client();
-    this.client.resolveConnection().then(() => {
-      this.client.initialize().then(() => {
-        this.client.send('textDocument/didOpen', {
-          textDocument: {
-            uri: 'file:///workspace/file.py',
-            languageId: this.editor.getMode().name,
-            version: 1,
-            text: this.editor.getValue(),
-          },
-        }, false).then(() => {
-          this.dispose = startListening(this.editor, this.client);
-        });
+    if (lspUrl) {
+      this.client = new Client(lspUrl);
+      this.adapter = createAdapter(this.editor, this.client, {
+        completionItemClassName,
+        loadHintModule: this.loadHintModule,
       });
-    });
+      this.adapter.start();
+    }
+  }
+
+  componentWillUnmount() {
+    if (this.adapter) {
+      this.adapter.dispose();
+    }
+
+    const wrapperNode = this.editor.getWrapperElement();
+    wrapperNode.parentNode.removeChild(wrapperNode);
+    this.editor = null;
+  }
+
+  loadMode(lang) {
+    // hardcoded for now
+    return import(`codemirror/mode/python/python`);
+  }
+
+  loadHintModule() {
+    import('codemirror/addon/hint/show-hint.css');
+    return import('codemirror/addon/hint/show-hint');
   }
 
   render() {
     const { className } = this.props;
 
     return (
-      <div ref={this.nodeRef} style={{ fontSize: 16 }} className={className} />
+      <div ref={this.nodeRef} className={className} />
     );
   }
 }

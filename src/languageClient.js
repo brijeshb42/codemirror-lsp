@@ -1,14 +1,12 @@
 export default class LanguageClient {
-  constructor(rootUri='file:///workspace') {
+  constructor(lspUrl, rootUri='file:///workspace') {
+    this.lspUrl = lspUrl;
     this.init();
-    // this.onOpen = this.onOpen.bind(this);
-    // this.onClose = this.onClose.bind(this);
-    // this.onMessage = this.onMessage.bind(this);
     this.rootUri = rootUri;
   }
 
   init() {
-    this.websocket = new WebSocket('ws://localhost:2087');
+    this.websocket = new WebSocket(this.lspUrl);
     this.websocket.addEventListener('open', this.onOpen);
     this.websocket.addEventListener('close', this.onClose);
     this.websocket.addEventListener('error', this.onClose);
@@ -130,7 +128,7 @@ export default class LanguageClient {
     const requestData = `Content-Length: ${dataStr.length}\r\n\r\n${dataStr}`;
     this.websocket.send(requestData);
 
-    return new Promise((resolve, reject) => {
+    const promise = new Promise((resolve, reject) => {
       if (!useId) {
         resolve();
       } else {
@@ -140,14 +138,19 @@ export default class LanguageClient {
       	};
       }
     });
+
+    if (useId) {
+      promise.id = data.id;
+    }
+    return promise;
   }
 
-  initialize() {
+  initialize(data = null) {
     if (this.initialized) {
       return Promise.reject();
     }
     
-    const params = {
+    const params = data || {
       rootUri: this.rootUri,
       trace: 'verbose',
       capabilities: {},
@@ -155,7 +158,7 @@ export default class LanguageClient {
     const promise = this.send('initialize', params, true, true);
     promise.then(res => {
       this.initialized = true;
-      this.capabilities = res.capabilities || {};
+      this.serverCapabilities = res.capabilities || {};
       this.send('initialized', {}, false);
     });
     promise.catch(err => {});
@@ -176,5 +179,28 @@ export default class LanguageClient {
 
   removeDiagnosticListener(listener) {
     this._diagnosticListeners = this._diagnosticListeners.filter(l => l !== listener);
+  }
+
+  clearData() {
+    Object.keys(this.enqueuedPromises).forEach(id => this.enqueuedPromises[id].reject());
+    this.enqueuedPromises = {};
+    this._diagnosticListeners = [];
+  }
+
+  close() {
+    if (this.initialized) {
+      this.send('shutdown', {})
+        .then(() => {
+	  this.send('exit');
+	  this.initialized = false;
+	  this.websocket.close();
+	  this.clearData();
+	}).catch(() => {
+	  this.websocket.close();
+	});
+    } else if (this.connected) {
+      this.clearData();
+      this.websocket.close();
+    }
   }
 }

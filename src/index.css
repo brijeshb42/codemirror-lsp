@@ -1,10 +1,18 @@
-.editor {
-    height: 600px;
-}
-
 .cm-editor .CodeMirror {
     border: 1px solid #eee;
     height: auto;
+    font-size: 20px;
+}
+
+.cm-editor .CodeMirror-hints {
+    padding: 0;
+    border-radius: 0;
+    border: none;
+}
+
+.cm-editor .cm-completion-item {
+    font-size: 20px;
+    border-radius: 0;
 }
 
 .cm-editor .cm-lint-warning {
