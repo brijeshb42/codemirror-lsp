@@ -1,3 +1,5 @@
+import throttle from 'lodash.throttle';
+
 export function convertCmChangestoLsp(editor, changes) {
   return changes.map(change => {
     const range = {};
@@ -96,17 +98,25 @@ export function createAdapter(editor, client, options = {}) {
   let connectionResolved = false;
   let autoCompletionEnabled = false;
   let triggerChars = [];
+  const filePath = client.rootUri + options.filename;
+  const throttledCompletion = throttle(function() {
+    editor.execCommand('autocomplete');
+  }, 3000);
 
-  const onChange = function(_cm, changes) {
+  function onChange(_cm, changes) {
     client.resolveConnection()
     .then(() => {
       client.send('textDocument/didChange', {
         textDocument: {
-          uri: 'file:///workspace/file.py',
+          uri: filePath,
           version: 1,
         },
         contentChanges: convertCmChangestoLsp(editor, changes),
-      }, false);
+      }, false);/*.then(() => {
+        if (autoCompletionEnabled && changes.length && !triggerChars.includes(changes[0].text[0])) {
+          throttledCompletion();
+        }
+      });*/
     });
 
     if (autoCompletionEnabled && changes.length && triggerChars.includes(changes[0].text[0])) {
@@ -115,7 +125,7 @@ export function createAdapter(editor, client, options = {}) {
   };
 
   let previousMarks = [];
-  const getDiagnostics = function(params) {
+  function getDiagnostics(params) {
     previousMarks.forEach(mark => mark.clear());
     previousMarks = [];
 
@@ -132,7 +142,7 @@ export function createAdapter(editor, client, options = {}) {
 
   let lastAnnotations = [];
   let lastPromise = null;
-  const di = function(params) {
+  function onDiagnostics(params) {
     if (lastPromise) {
       lastPromise(convertLspDiagnosticsToCm(params.diagnostics));
     }
@@ -147,14 +157,14 @@ export function createAdapter(editor, client, options = {}) {
     },
   };
 
-  const completion = function(editor, opt) {
+  function getCompletion(editor, opt) {
     return new Promise((resolve, reject) => {
       client.resolveConnection()
       .then(() => {
         const cursor = editor.getCursor();
         const pr = client.send('textDocument/completion', {
           textDocument: {
-            uri: 'file:///workspace/file.py',
+            uri: filePath,
           },
           position: {
             character: cursor.ch,
@@ -213,7 +223,7 @@ export function createAdapter(editor, client, options = {}) {
 
           client.send('textDocument/didOpen', {
             textDocument: {
-              uri: 'file:///workspace/file.py',
+              uri: filePath,
               languageId: editor.getMode().name,
               version: 1,
               text: editor.getValue(),
@@ -227,7 +237,7 @@ export function createAdapter(editor, client, options = {}) {
               .then(() => {
                 autoCompletionEnabled = true;
                 editor.setOption('hintOptions', {
-                  hint: completion,
+                  hint: getCompletion,
                   container: editor.getWrapperElement().parentNode,
                   alignWithWord: false,
                   extraKeys: completionKeyMap,
@@ -236,7 +246,6 @@ export function createAdapter(editor, client, options = {}) {
             }
           }
 
-          editor.setOption('lintAsync', true);
           editor.setOption('lint', {
             getAnnotations(value, opts, cm) {
               return new Promise((resolve) => {
@@ -244,11 +253,12 @@ export function createAdapter(editor, client, options = {}) {
               });
             },
           });
-          client.addDiagnosticListener(di);
+          client.addDiagnosticListener(onDiagnostics);
         });
       });
     },
     dispose: function() {
+      throttledCompletion.cancel();
       if (!connectionResolved) {
         client.close();
         return;

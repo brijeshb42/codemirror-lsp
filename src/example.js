@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 
-import Editor from './codemirror';
+import Editor from './';
 
 const node = document.createElement('div');
 document.body.appendChild(node);
@@ -9,7 +9,7 @@ document.body.appendChild(node);
 ReactDOM.render(
   <Editor
     autoFocus
-    language="python"
+    language="javascript"
     extension="py"
     className="cm-editor"
     value=""

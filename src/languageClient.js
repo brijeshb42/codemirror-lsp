@@ -79,24 +79,24 @@ export default class LanguageClient {
       if (typeof responseData.id !== 'undefined' && this.enqueuedPromises[responseData.id]) {
         const { resolve, reject } = this.enqueuedPromises[responseData.id];
 
-      	if (typeof responseData.result !== 'undefined') {
-      	  resolve(responseData.result);
-      	} else {
-      	  reject(responseData.error || {});
-      	}
+        if (typeof responseData.result !== 'undefined') {
+          resolve(responseData.result);
+        } else {
+          reject(responseData.error || {});
+        }
 
         delete this.enqueuedPromises[responseData.id];
       } else {
-      	if (!responseData.method) {
-      	  return;
-      	}
-      	switch(responseData.method) {
-      	case 'textDocument/publishDiagnostics':
-      	  this.dispatchDiagnostics(responseData.params);
-      	  break;
-      	default:
-      	  break;
-      	}
+        if (!responseData.method) {
+          return;
+        }
+        switch(responseData.method) {
+          case 'textDocument/publishDiagnostics':
+          this.dispatchDiagnostics(responseData.params);
+          break;
+          default:
+          break;
+        }
       }
     } catch(e) {
       console.log(e);
@@ -132,10 +132,10 @@ export default class LanguageClient {
       if (!useId) {
         resolve();
       } else {
-      	this.enqueuedPromises[data.id] = {
-      	  resolve,
-      	  reject,
-      	};
+        this.enqueuedPromises[data.id] = {
+          resolve,
+          reject,
+        };
       }
     });
 
@@ -149,7 +149,7 @@ export default class LanguageClient {
     if (this.initialized) {
       return Promise.reject();
     }
-    
+
     const params = data || {
       rootUri: this.rootUri,
       trace: 'verbose',
@@ -190,14 +190,14 @@ export default class LanguageClient {
   close() {
     if (this.initialized) {
       this.send('shutdown', {})
-        .then(() => {
-	  this.send('exit');
-	  this.initialized = false;
-	  this.websocket.close();
-	  this.clearData();
-	}).catch(() => {
-	  this.websocket.close();
-	});
+      .then(() => {
+        this.send('exit');
+        this.initialized = false;
+        this.websocket.close();
+        this.clearData();
+      }).catch(() => {
+        this.websocket.close();
+      });
     } else if (this.connected) {
       this.clearData();
       this.websocket.close();
